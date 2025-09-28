@@ -1,81 +1,84 @@
 # 🗡️ Raid Helper Calendar
 
-Agregátor raid eventů z více Discord serverů s použitím Raid Helper API. Zobrazuje eventy seskupené podle dnů v českém formátu.
+A calendar aggregator for raid events from multiple Discord servers using the Raid Helper API. Displays events grouped by days with localized date and time formatting.
 
 ## Features
 
-- ✅ Agregace eventů z více Discord serverů
-- ✅ České datum a čas formátování
-- ✅ Seskupení eventů podle dnů
-- ✅ Aktuální týden prominentně zobrazen
-- ✅ Příští týden sbalitelný
+- ✅ Aggregate events from multiple Discord servers
+- ✅ Localized date and time formatting
+- ✅ Events grouped by day
+- ✅ Current week prominently displayed
+- ✅ Next week collapsible section
 - ✅ Streamlit web interface
-- ✅ Jednoduché spravování server ID
-- ✅ Zabezpečený vstup pro access token
+- ✅ Simple server ID management
+- ✅ Secure access token input
+- ✅ Event caching for better performance
 
-## Instalace
+## Installation
 
-1. Klonujte repository:
+1. Clone the repository:
 ```bash
 git clone <your-repo-url>
 cd raid-helper-calendar
 ```
 
-2. Nainstalujte závislosti:
+2. Install dependencies:
 ```bash
 pip install -e .
 ```
 
-3. Spusťte aplikaci:
+3. Run the application:
 ```bash
 streamlit run main.py
 ```
 
-Nebo použijte startup script:
-```bash
-chmod +x run.sh
-./run.sh
-```
+## Usage
 
-## Použití
+### 1. Getting an Access Token
 
-### 1. Získání Access Token
+1. Log in to [raid-helper.dev](https://raid-helper.dev)
+2. Open Developer Tools (F12)
+3. Go to the Network tab
+4. Load a page with events
+5. Find the request to `/api/events/`
+6. Copy the `accessToken` from the request payload
 
-1. Přihlaste se na [raid-helper.dev](https://raid-helper.dev)
-2. Otevřete Developer Tools (F12)
-3. Přejděte na Network tab
-4. Načtěte stránku s eventy
-5. Najděte request na `/api/events/`
-6. Zkopírujte `accessToken` z request payload
+### 2. Setting Up Server IDs
 
-### 2. Nastavení Server IDs
+1. In the application sidebar, you can add/remove Discord Server IDs
+2. Default server IDs can be edited in `config.py` in the `DEFAULT_SERVER_IDS` variable
 
-1. V postranním panelu aplikace můžete přidávat/odebírat Discord Server IDs
-2. Default server IDs můžete upravit v `main.py` v proměnné `DEFAULT_SERVER_IDS`
+### 3. Loading Events
 
-### 3. Načtení eventů
+1. Enter your Access Token
+2. Check/modify Server IDs
+3. Click "🔄 Load Events"
 
-1. Zadejte váš Access Token
-2. Zkontrolujte/upravte Server IDs
-3. Klikněte na "🔄 Načíst eventy"
-
-## Struktura projektu
+## Project Structure
 
 ```
-├── main.py              # Hlavní Streamlit aplikace
-├── raid_helper_api.py   # API klient pro Raid Helper
-├── event_processor.py   # Zpracování a seskupování eventů
-├── pyproject.toml       # Python project konfigurace
-├── run.sh              # Startup script
-└── README.md           # Tato dokumentace
+├── main.py              # Main Streamlit application
+├── raid_helper_api.py   # API client for Raid Helper
+├── event_processor.py   # Event processing and grouping logic
+├── config.py           # Configuration settings
+├── utils.py            # Utility functions
+├── pyproject.toml      # Python project configuration
+└── README.md           # This documentation
 ```
+
+## Requirements
+
+- Python >= 3.12
+- Streamlit >= 1.28.0
+- Requests >= 2.31.0
+- pytz >= 2023.3
 
 ## API
 
-Aplikace používá oficální Raid Helper API:
+The application uses the official Raid Helper API:
 - Endpoint: `https://raid-helper.dev/api/events/`
 - Payload: `{"serverid": "...", "accessToken": "..."}`
 
-## Licence
+## License
 
 MIT License
