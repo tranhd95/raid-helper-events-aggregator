@@ -8,6 +8,7 @@ import datetime
 from raid_helper_api import RaidHelperAPI, RaidEvent
 from event_processor import EventProcessor
 from config import DEFAULT_SERVER_IDS, CACHE_TTL, get_access_token
+# Removed timezone_detector import - using st.context.timezone instead
 
 
 def get_server_ids() -> List[str]:
@@ -16,15 +17,15 @@ def get_server_ids() -> List[str]:
 
 
 @st.cache_data(ttl=CACHE_TTL)  # Cache for 1 hour
-def fetch_and_process_events(access_token: str, server_ids: List[str]) -> Dict:
+def fetch_and_process_events(access_token: str, server_ids: List[str], user_timezone: str) -> Dict:
     """Fetch and process events with caching."""
-    api = RaidHelperAPI(access_token)
+    api = RaidHelperAPI(access_token, user_timezone)
     all_events = api.fetch_all_events(server_ids)
     
     if not all_events:
         return None
     
-    processor = EventProcessor()
+    processor = EventProcessor(user_timezone)
     categorized_events = processor.categorize_events_with_next_week(all_events)
     
     return {
@@ -46,49 +47,43 @@ def get_server_names_from_events(events: List[RaidEvent]) -> List[str]:
 
 
 def render_event_card(event: RaidEvent):
-    """Render a single event as a simple markdown list item."""
-    # Create basic markdown list item
-    event_info = f"#### {event.display_title}"
-    event_info += f"\n  - at **{event.time}** with **{event.server_name}**"
-    event_info += f"\n  - Signed up: **{event.signup_count}**"
-    
+    formatted_time = event.get_datetime_in_timezone().strftime('%H:%M')
+    lines = [
+        f"#### {event.display_title}",
+        f"**w/ {event.server_name}**",
+        f"- at **{formatted_time}**\n\n- Signups: **{event.signup_count}**",
+    ]
     if event.channel_name:
-        event_info += f"\n  - Channel: #{event.channel_name}"
-    
-    if event.description.strip():
-        event_info += f"\n  --- \n{event.description}"
-        
-        st.error(event_info)
+        lines.append(f"- #{event.channel_name}")
+    desc = (event.description or '').strip()
+    if desc:
+        lines.append("---")
+        lines.append(desc)
+    from textwrap import dedent
+    st.info(dedent("\n".join(lines)))
 
 
-def render_events_by_day(events_by_day: Dict[str, List[RaidEvent]], title: str):
-    """Render events grouped by day using columns."""
+def render_events_by_day(events_by_day: Dict, title: str):
     if not events_by_day:
         st.info("No events")
         return
-    
     if title:
         st.subheader(title)
-    
-    # Create columns for each day
     days = list(events_by_day.keys())
+    display_keys = [d.strftime('%a, %b %d') for d in days]
     if len(days) == 1:
-        # If only one day, use full width
         col = st.columns(1, border=True)[0]
         with col:
-            day = days[0]
-            events = events_by_day[day]
-            st.markdown(f"### {day}")
-            for event in events:
-                render_event_card(event)
-    else:
-        # Create columns for multiple days
-        cols = st.columns(len(days), border=True)
-        for i, (day, events) in enumerate(events_by_day.items()):
-            with cols[i]:
-                st.markdown(f"### {day}")
-                for event in events:
-                    render_event_card(event)
+            st.markdown(f"### {display_keys[0]}")
+            for ev in events_by_day[days[0]]:
+                render_event_card(ev)
+        return
+    cols = st.columns(len(days), border=True)
+    for i, day in enumerate(days):
+        with cols[i]:
+            st.markdown(f"### {display_keys[i]}")
+            for ev in events_by_day[day]:
+                render_event_card(ev)
 
 
 def main():
@@ -101,12 +96,34 @@ def main():
     st.title("🗡️ Raid Helper Calendar")
     st.markdown("Raid event aggregator from multiple Discord servers")
     
+    # Get user's timezone from browser using Streamlit's built-in context
+    try:
+        user_timezone = st.context.timezone
+    except (AttributeError, Exception):
+        # Fallback for older Streamlit versions or when context is not available
+        user_timezone = 'Europe/Prague'
+    
     # Get access token from configuration
     access_token = get_access_token()
     
     # Sidebar for configuration
     with st.sidebar:
         st.header("⚙️ Configuration")
+        
+        # Show timezone info
+        st.markdown("---")
+        st.subheader("🌍 Timezone")
+        st.info(f"**Detected:** {user_timezone}")
+        
+        # Show current time in user's timezone
+        try:
+            import pytz
+            from datetime import datetime
+            tz = pytz.timezone(user_timezone)
+            current_time = datetime.now(tz)
+            st.success(f"**Local time:** {current_time.strftime('%H:%M:%S %Z')}")
+        except Exception as e:
+            st.warning(f"Timezone error: {e}")
         
         # Force refresh button
         if st.button("🔄 Clear cache and refresh", type="primary"):
@@ -123,7 +140,7 @@ def main():
     # Fetch events using cached function
     with st.spinner("Loading events..."):
         try:
-            events_data = fetch_and_process_events(access_token, server_ids)
+            events_data = fetch_and_process_events(access_token, server_ids, user_timezone)
             
             if not events_data:
                 st.error("❌ Failed to load events. Check Access Token and Server IDs.")
@@ -150,7 +167,7 @@ def main():
             return
     
     # Display events
-    processor = EventProcessor()
+    processor = EventProcessor(user_timezone)
     
     # Events from yesterday to end of week
     this_period_events = categorized_events.get('this_period', [])

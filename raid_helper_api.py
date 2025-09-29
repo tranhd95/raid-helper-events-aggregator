@@ -1,18 +1,15 @@
-"""
-Raid Helper API client for fetching events from multiple Discord servers.
-"""
+"""Fetch + model raid events from Raid Helper API."""
 import requests
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 import pytz
 from config import RAID_HELPER_BASE_URL, API_TIMEOUT
-from utils import get_timezone, safe_api_call, safe_int_conversion, format_czech_date, safe_get_dict_value
+from utils import get_timezone, safe_api_call, safe_int_conversion
 
 
 @dataclass
 class RaidEvent:
-    """Represents a single raid event."""
     title: str
     display_title: str
     date: str
@@ -26,25 +23,23 @@ class RaidEvent:
     channel_name: str
     image: str
     color: str
-    
-    @property
-    def datetime_cz(self) -> datetime:
-        """Get the event datetime in Czech timezone."""
+    timezone_name: str = None
+
+    def get_datetime_in_timezone(self, timezone_name: str = None) -> datetime:
         utc_dt = datetime.fromtimestamp(self.unix_time, tz=pytz.UTC)
-        cz_tz = get_timezone()
-        return utc_dt.astimezone(cz_tz)
-    
+        return utc_dt.astimezone(get_timezone(timezone_name or self.timezone_name))
+
     @property
-    def date_formatted_cz(self) -> str:
-        """Get Czech formatted date (e.g., 'Po 23.9.2025')."""
-        return format_czech_date(self.datetime_cz)
+    def datetime_local(self) -> datetime:
+        return self.get_datetime_in_timezone()
 
 
 class RaidHelperAPI:
     """Client for interacting with Raid Helper API."""
     
-    def __init__(self, access_token: str):
+    def __init__(self, access_token: str, timezone_name: str = None):
         self.access_token = access_token
+        self.timezone_name = timezone_name
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
@@ -94,25 +89,26 @@ class RaidHelperAPI:
             if not server_data:
                 continue
                 
-            server_name = safe_get_dict_value(server_data, 'servername', 'Unknown Server')
-            events = safe_get_dict_value(server_data, 'events', [])
+            server_name = server_data.get('servername', 'Unknown Server')
+            events = server_data.get('events', [])
             
             for event_data in events:
                 try:
                     event = RaidEvent(
-                        title=safe_get_dict_value(event_data, 'title'),
-                        display_title=safe_get_dict_value(event_data, 'displayTitle'),
-                        date=safe_get_dict_value(event_data, 'date'),
-                        time=safe_get_dict_value(event_data, 'time'),
+                        title=event_data.get('title'),
+                        display_title=event_data.get('displayTitle'),
+                        date=event_data.get('date'),
+                        time=event_data.get('time'),
                         unix_time=safe_int_conversion(event_data.get('unixtime', 0)),
-                        leader=safe_get_dict_value(event_data, 'leader'),
-                        description=safe_get_dict_value(event_data, 'description'),
+                        leader=event_data.get('leader'),
+                        description=event_data.get('description'),
                         server_name=server_name,
-                        server_id=safe_get_dict_value(event_data, 'serverId', server_id),
-                        signup_count=safe_get_dict_value(event_data, 'signupcount', '0'),
-                        channel_name=safe_get_dict_value(event_data, 'channelName'),
-                        image=safe_get_dict_value(event_data, 'image'),
-                        color=safe_get_dict_value(event_data, 'color', '255,0,0')
+                        server_id=event_data.get('serverId', server_id),
+                        signup_count=event_data.get('signupcount', '0'),
+                        channel_name=event_data.get('channelName'),
+                        image=event_data.get('image'),
+                        color=event_data.get('color', '255,0,0'),
+                        timezone_name=self.timezone_name
                     )
                     all_events.append(event)
                 except (ValueError, TypeError) as e:

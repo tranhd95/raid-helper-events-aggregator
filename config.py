@@ -25,12 +25,9 @@ API_TIMEOUT = 10
 
 # Application Configuration
 CACHE_TTL = 3600  # 1 hour in seconds
-TIMEZONE = 'Europe/Prague'
+DEFAULT_TIMEZONE = 'Europe/Prague'  # Fallback timezone if browser detection fails
 
 
 def get_access_token() -> str:
     """Get the access token from Streamlit secrets."""
     return st.secrets["access_token"]
-
-# Czech day names for date formatting
-CZECH_DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
